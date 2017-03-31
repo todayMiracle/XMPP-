@@ -5,10 +5,15 @@
 //  Created by 谢石长 on 17/3/27.
 //  Copyright © 2017年 谢石长. All rights reserved.
 //
+#define IS_IOS7_OR_LATER    ([[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0)
+#define IS_IOS8_OR_LATER    ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0)
+#define IS_IOS10_OR_LATER    ([[[UIDevice currentDevice] systemVersion] floatValue] >= 10.0)
+
 
 #import "AppDelegate.h"
-
-@interface AppDelegate ()
+// iOS10之后 推送通知;
+#import <UserNotifications/UserNotifications.h>
+@interface AppDelegate ()<UNUserNotificationCenterDelegate>
 
 @end
 
@@ -16,10 +21,45 @@
 
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    // Override point for customization after application launch.
+    // 登陆;
+    [[XSCManageStream shareManager] loginToserver:[XMPPJID jidWithUser:@"lisi" domain:@"127.0.0.1" resource:nil] andPassword:@"123"];
+    // 需要一个用户通知设置 iOS10之前;
+//    UIUserNotificationSettings *settings=[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeSound | UIUserNotificationTypeBadge | UIUserNotificationTypeNone categories:nil];
+//   
+//    // 注册通知;
+//    [[UIApplication sharedApplication]registerUserNotificationSettings:settings];
+    
+    if ([[UIDevice currentDevice].systemVersion floatValue]>=10.0) {// iOS 10 之后
+        UNUserNotificationCenter *center=[UNUserNotificationCenter currentNotificationCenter];
+        center.delegate=self;
+        [center requestAuthorizationWithOptions:UNAuthorizationOptionBadge |UNAuthorizationOptionSound |UNAuthorizationOptionAlert completionHandler:^(BOOL granted,NSError *_Nullable error){
+            if (! error) {
+                [[UIApplication sharedApplication] registerForRemoteNotifications];
+                XSCLog(@"推送成功");
+            }
+        }];
+        
+    }
+    
     return YES;
 }
 
+#pragma mark--UNUserNotificationCenterDelegate
+// ios 10 之后  推送消息接收;
+-(void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)())completionHandler{
+    
+    NSDictionary *userInfo=response.notification.request.content.userInfo;
+    /*
+     UIApplicationStateActive,
+     UIApplicationStateInactive,
+     UIApplicationStateBackground
+     */
+    if ([UIApplication sharedApplication].applicationState==UIApplicationStateActive) {
+        
+    }else{// 在后台
+        
+    }
+}
 
 - (void)applicationWillResignActive:(UIApplication *)application {
     // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.

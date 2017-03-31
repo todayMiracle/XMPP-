@@ -10,8 +10,13 @@
 #define PrefixHeader_pch
 
 #import <UIKit/UIKit.h>
+#import "UIImage+XMPP.h"
+#import "XMPPFramework.h"
+#import "XSCManageStream.h"
+#import <UserNotifications/UserNotifications.h>
 
 // Include any system framework and library headers here that should be included in all compilation units.
 // You will also need to set the Prefix Header build setting of one or more of your targets to reference this file.
 
+#define XSCLog(...) NSLog(__VA_ARGS__)
 #endif /* PrefixHeader_pch */
