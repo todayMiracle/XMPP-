@@ -34,8 +34,11 @@
 }
 
 - (IBAction)cancelButton:(id)sender {
+    self.tabBarController.selectedIndex=0;
     [self.navigationController popViewControllerAnimated:YES];
+
 }
+
 - (IBAction)determineCornect:(id)sender {
     
     // 更新数据;

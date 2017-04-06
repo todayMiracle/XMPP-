@@ -135,6 +135,9 @@
     
     chat.userJid=contact.bareJid;
 }
+- (IBAction)jionNewRoom:(id)sender {
+    [[XSCMUCRoomManager shareMUCRoom] jionOrCreateWithRoomJid:[XMPPJID jidWithUser:@"iOS" domain:@"ios.127.0.0.1" resource:nil] andNickName:@"手机"];
+}
 /*
 // Override to support conditional editing of the table view.
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {

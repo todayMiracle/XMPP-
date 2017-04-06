@@ -7,8 +7,9 @@
 //
 
 #import "XSCChatViewController.h"
-
-@interface XSCChatViewController ()<UITextFieldDelegate,UITableViewDelegate,UITableViewDataSource,NSFetchedResultsControllerDelegate,XMPPvCardAvatarDelegate>
+#import "XSCXMPPChatKeyBoardView.h"
+#import "XSCChatCell.h"
+@interface XSCChatViewController ()<UITextFieldDelegate,UITableViewDelegate,UITableViewDataSource,NSFetchedResultsControllerDelegate,XMPPvCardAvatarDelegate,XSCXMPPChatKeyBoardViewDelegate,UINavigationControllerDelegate, UIImagePickerControllerDelegate,XMPPIncomingFileTransferDelegate>
 @property (weak, nonatomic) IBOutlet UITableView *tableview;
 @property (weak, nonatomic) IBOutlet UITextField *textFiled;
 
@@ -20,12 +21,47 @@
 // 聊天记录模型;
 @property(nonatomic,strong)NSArray *messageS;
 
+@property(nonatomic,assign)CGFloat keyH;
+@property(nonatomic,strong)XSCXMPPChatKeyBoardView *keyBoardview;
+@property(nonatomic,strong)UITextField *recordTextF;
+
+
+
+@property(nonatomic,assign)CGFloat *imageH;
 
 @end
 
 @implementation XSCChatViewController
 
 #pragma mark--懒加载
+-(UITextField*)recordTextF{
+    if (_recordTextF==nil) {
+        _recordTextF=[[UITextField alloc]init];
+        
+        UIButton *btn=[UIButton buttonWithType:UIButtonTypeContactAdd];
+        _recordTextF.inputView=btn;
+        
+        [btn addTarget:self action:@selector(touchDownStartRecord) forControlEvents:UIControlEventTouchDown];
+          [btn addTarget:self action:@selector(touchUpStartRecord) forControlEvents:UIControlEventTouchUpInside];
+        
+        [self.keyBoardview addSubview:_recordTextF];
+        
+    }
+    return _recordTextF;
+}
+
+-(XSCXMPPChatKeyBoardView*)keyBoardview{
+    if (_keyBoardview==nil) {
+        _keyBoardview=[XSCXMPPChatKeyBoardView showKeyBoard];
+        _keyBoardview.heigth=self.keyH;
+        _keyBoardview.width=[UIScreen mainScreen].bounds.size.width
+        ;
+        // 设置代理;
+        _keyBoardview.delegate=self;
+    }
+    return _keyBoardview;
+}
+
 -(NSArray*)messageS{
     if (_messageS==nil) {
         _messageS=[NSArray array];
@@ -99,6 +135,9 @@
     // 设置更新别人头像的代理;
     [[XSCManageStream shareManager].xmppvCardAvatarModule addDelegate:self delegateQueue:dispatch_get_main_queue()];
     
+    // 设置文件接收代理;
+   // [[XSCManageStream shareManager].xmppIncomingFileTransfer addDelegate:self delegateQueue:dispatch_get_main_queue()];
+    
     // 主动删除缓存;
     [NSFetchedResultsController deleteCacheWithName:@"messages"];
     
@@ -108,12 +147,12 @@
     NSError *error=nil;
     
     if ([self.FetchedResultsController performFetch:&error]) {
-        XSCLog(@"读取成功");
+        //XSCLog(@"读取成功");
          self.messageS=self.FetchedResultsController.fetchedObjects;
     }else{
          XSCLog(@"%@",error);
     }
-    XSCLog(@"viewDidLoad获取排序后的数据---%@",self.messageS);
+    //XSCLog(@"viewDidLoad获取排序后的数据---%@",self.messageS);
     [self setTableviewScrollviewToBottom];
    
    
@@ -135,6 +174,7 @@
     //1  获取键盘高度;
     CGRect KbFrame=[noti.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
     CGFloat Height=KbFrame.size.height;
+    self.keyH=Height;
     // 获取键盘弹出时间;
     CGFloat time=[noti.userInfo[UIKeyboardAnimationCurveUserInfoKey] doubleValue];
     
@@ -150,6 +190,7 @@
 }
 // 取消键盘;
 -(void)scrollViewWillBeginDragging:(UIScrollView *)scrollView{
+    
     [self.textFiled endEditing:YES];
 }
 #pragma mark--- 发送消息;
@@ -169,7 +210,7 @@
     [message addBody:text];
     
     [[XSCManageStream shareManager].xmppStream sendElement:message];
-    XSCLog(@"单聊类型%@",message);
+   // XSCLog(@"单聊类型%@",message);
     // 刷新数据;
     [self.tableview reloadData];
 }
@@ -184,17 +225,52 @@
 -(UITableViewCell*)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
     // 1 获取数据;
     XMPPMessageArchiving_Message_CoreDataObject *mgr=self.messageS[indexPath.row];
-    
-   // XMPPvCardTemp *vCartemp=[XSCManageStream shareManager].xmppvCarTempM.myvCardTemp;
+     XMPPMessage *msg = mgr.message;
+  
     // 2 创建cell
-    UITableViewCell *cell=[tableView dequeueReusableCellWithIdentifier:mgr.isOutgoing?@"right_cell":@"left_cell"];
+    XSCChatCell *cell=[tableView dequeueReusableCellWithIdentifier:mgr.isOutgoing?@"right_cell":@"left_cell"];
+    cell.audioData=nil;
     
     // 3 给cell赋值;
     UILabel *messageLa=[cell viewWithTag:1002];
-    messageLa.text=mgr.body;
+    if ([mgr.body isEqualToString:@"image"]) {
+       
+        
+        for (XMPPElement *node in msg.children) {
+            
+            // 取出消息的解码
+            NSString *base64str = node.stringValue;
+            NSData *data = [[NSData alloc]initWithBase64EncodedString:base64str options:0];
+            UIImage *image = [[UIImage alloc]initWithData:data];
+            
+            // 把图片在label中显示
+            NSTextAttachment *attach = [[NSTextAttachment alloc]init];
+            attach.image = [image scaleImageWithWidth:200];
+            NSAttributedString *attachStr = [NSAttributedString attributedStringWithAttachment:attach];
+            
+            // 用了这个label的属性赋值方法，就可以忽略那个普通的赋值方法
+            messageLa.attributedText = attachStr;
+            
+            [self.view endEditing:YES];
+        }
+    }else if ([mgr.body hasPrefix:@"audio"]){
+        for (XMPPElement *node in msg.children) {                     NSString *base64str = node.stringValue;                         NSData *data = [[NSData alloc]initWithBase64EncodedString:base64str options:0];                         NSString *newstr = [mgr.body substringFromIndex:6];             messageLa.text = newstr;
+            cell.audioData=data;
+          
+        }
+    }
+    else{
+        messageLa.text=mgr.body;
+    }
+   
+    
+    UILabel *timeTamp=[cell viewWithTag:1003];
+    timeTamp.text=[self createTime:mgr.timestamp];
     
     UIImageView *imagev=[cell viewWithTag:1001];
     imagev.clipsToBounds=YES;
+    
+    
     
     if (mgr.isOutgoing) {// 自己的头像
         
@@ -208,9 +284,41 @@
     
     return cell;
 }
+
 -(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
-    return 100;
+    return 200;
 }
+#pragma mark--获取发消息时间
+-(NSString*)createTime:(NSDate*)date{
+    // 日期格式化;
+    NSDateFormatter *fm=[[NSDateFormatter alloc]init];
+    // 设置日期格式;
+    fm.dateFormat=@"yyyy--MM-dd HH-mm-ss";
+    if (date.isThisYear) {//今年
+        
+        if (date.isToday) {//今天
+            NSDateComponents *comps=[[NSDate date]deltaFrom:date];
+            if (comps.hour>=1) {//时间差距大于一小时
+                return [NSString stringWithFormat:@"%zd小时前",comps.hour];
+            }else if(comps.minute>=1){// 1小时 > 时间差距
+                return [NSString stringWithFormat:@"%zd分钟前",comps.minute];
+            }else{// 1分钟 > 时间差距
+                return  @"刚刚";
+            }
+            
+        }else if (date.isYesterday){//昨天
+            fm.dateFormat=@"昨天 HH:mm:ss";
+            return [fm stringFromDate:date];
+        }else{
+            fm.dateFormat=@"MM-dd HH-mm-ss";
+            return [fm stringFromDate:date];
+        }
+    }else {//非今年
+        return  [fm stringFromDate:date];
+    }
+
+}
+
 
 #pragma mark--XMPPvCardAvatarDelegate--更新别人头像
 -(void)xmppvCardAvatarModule:(XMPPvCardAvatarModule *)vCardTempModule didReceivePhoto:(UIImage *)photo forJID:(XMPPJID *)jid{
@@ -218,9 +326,106 @@
 }
 
 
+#pragma mark--发送图片语音视频
 
+- (IBAction)clickMore:(UIButton *)sender {
+    if (self.textFiled.inputView) {
+        self.textFiled.inputView=nil;
+    }else{
+        [sender setImage:[UIImage imageNamed:@"chatBar_moreSelected"] forState:UIControlStateNormal ];
+        self.textFiled.inputView=self.keyBoardview;
+    }
+    
+    [self.textFiled resignFirstResponder];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.2*NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self.textFiled becomeFirstResponder];
+    });
 
+}
 
+#pragma mark--XSCXMPPChatKeyBoardViewDelegate
+-(void)clickXSCXMPPChatKeyBoardViewWithBtn:(UIButton *)btn{
+    if ([btn.titleLabel.text isEqualToString:@"图片"]) {
+        XSCLog(@"图片");
+        UIImagePickerController *pic=[[UIImagePickerController alloc]init];
+        
+        //pic.allowsEditing=YES;// 打开多选图片模式
+        
+        // 设置代理;
+        pic.delegate=self;
+        
+        [self.navigationController presentViewController:pic animated:YES completion:nil];
+    }else if([btn.titleLabel.text isEqualToString:@"语音"]){
+        
+        // 切换焦点   弹出语音;
+        [self.recordTextF becomeFirstResponder];
+    }
+}
+#pragma mark--相册代理方法;
+// 选中哪个图片;
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<NSString *,id> *)info{
+   // XSCLog(@"%@",info);
+    
+    // 获取图片;
+    UIImage *image=info[UIImagePickerControllerOriginalImage];
+    NSData *data=UIImageJPEGRepresentation(image, 0.2);
+    
+    
+    [self sendMessageWithData:data bodyName:@"image"];
+    
+        // 取消控制器;
+    [self.navigationController dismissViewControllerAnimated:YES completion:nil];
+    
+    
+}
+// 取消选中哪个图片;
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker{
+    [self.navigationController dismissViewControllerAnimated:YES completion:nil];
+}
+/** 发送二进制文件   这个方法内流程就是一开始说得，先编码再发送。这个自定义的方法同样适用于发送音频信息。*/
+- (void)sendMessageWithData:(NSData *)data bodyName:(NSString *)name
+{
+    XMPPMessage *message = [XMPPMessage messageWithType:@"chat" to:self.userJid];
+    
+    [message addBody:name];
+    
+    // 转换成base64的编码
+    NSString *base64str = [data base64EncodedStringWithOptions:0];
+    
+    // 设置节点内容
+    XMPPElement *attachment = [XMPPElement elementWithName:@"attachment" stringValue:base64str];
+    
+    // 包含子节点
+    [message addChild:attachment];
+    
+    // 发送消息
+    [[XSCManageStream shareManager].xmppStream sendElement:message];
+}
+
+#pragma mark--录音－－－发送录音方法
+-(void)touchDownStartRecord{
+    XSCLog(@"开始录音");
+    [[XSCRecordTools shareRecorder] startRecord];
+}
+
+-(void)touchUpStartRecord{
+    XSCLog(@"停止录音");
+    [[XSCRecordTools shareRecorder] stopRecordSuccess:^(NSURL *url,NSTimeInterval time){
+        // 发送数据;
+        NSData *data=[NSData dataWithContentsOfURL:url];
+       
+        [self sendMessageWithData:data bodyName:[NSString stringWithFormat:@"audio:%.1f秒",time]];
+        
+        
+        
+        
+    }andFail:^{
+       [[[UIAlertView alloc] initWithTitle:@"提示" message:@"时间太短" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil, nil] show];
+    }];
+    
+    
+}
 
 
 

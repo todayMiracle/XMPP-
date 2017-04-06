@@ -43,7 +43,7 @@ static NSString *ID=@"contact_cell";
     
     // 获取数据;
     self.contactArrs=self.fetchedResultsController.fetchedObjects;
-    XSCLog(@"好友列表%@",self.contactArrs);
+    //XSCLog(@"好友列表%@",self.contactArrs);
 
     // 刷新数据;
     [self.tableView reloadData];
@@ -55,7 +55,7 @@ static NSString *ID=@"contact_cell";
     
     // 最新的消息;
     self.contactArrs=controller.fetchedObjects;
-    XSCLog(@"好友列表%@",self.contactArrs);
+   // XSCLog(@"好友列表%@",self.contactArrs);
     // 刷新数据;
     [self.tableView reloadData];
 }
@@ -141,16 +141,17 @@ static NSString *ID=@"contact_cell";
     
 }
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
-       //XMPPUserCoreDataStorageObject *contact=self.contactArrs[indexPath.row];
+    
        UIStoryboard *storyB=[UIStoryboard storyboardWithName:@"Main" bundle:nil];
     XSCChatViewController *ch=(XSCChatViewController*)[storyB instantiateViewControllerWithIdentifier:@"chatview"];
-    
+   // XSCChatViewController *ch=[[XSCChatViewController alloc]init];
     // 获取聊天对象;
    // ch.userJid=contact.jid;
     ch.userJid=[self.contactArrs[indexPath.row] jid];
     
     //self.hidesBottomBarWhenPushed=YES;
-    [self.navigationController pushViewController:ch animated:YES];
+    //[self.navigationController pushViewController:ch animated:YES];
+    
 }
 #pragma mark-删除好友
 -(void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath{

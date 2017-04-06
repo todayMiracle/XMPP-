@@ -11,4 +11,7 @@
 @interface UIImage (XMPP)
 
 -(UIImage*)ciircleImage;
+
+/** 把图片缩小到指定的宽度范围内为止 */
+- (UIImage *)scaleImageWithWidth:(CGFloat)width;
 @end

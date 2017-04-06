@@ -36,6 +36,10 @@
 // 5. 电子名片模块   个人资料模块;
 @property(nonatomic,strong)XMPPvCardTempModule *xmppvCarTempM;
 
+// 6文件接收;
+@property(nonatomic,strong)XMPPIncomingFileTransfer *xmppIncomingFileTransfer;
+
+
 
 
 

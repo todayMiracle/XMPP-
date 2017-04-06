@@ -72,7 +72,7 @@
 #pragma mark--相册代理方法;
 // 选中哪个图片;
 - (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<NSString *,id> *)info{
-    XSCLog(@"%@",info);
+   // XSCLog(@"%@",info);
     
     // 获取图片;
     UIImage *image=info[UIImagePickerControllerEditedImage];

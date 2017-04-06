@@ -12,7 +12,7 @@
 #import "DDTTYLogger.h"
 #import "XMPPLogging.h"  // 如果需要打印登陆信息日志就导入此头文件
 
-@interface XSCManageStream ()<XMPPStreamDelegate,XMPPRosterDelegate>
+@interface XSCManageStream ()<XMPPStreamDelegate,XMPPRosterDelegate,XMPPIncomingFileTransferDelegate>
 
 @end
 
@@ -171,11 +171,26 @@ static XSCManageStream *share; // 控制器流  socket
     return _xmppvCardAvatarModule;
 }
 
+/**文件接收*/
+-(XMPPIncomingFileTransfer*)xmppIncomingFileTransfer{
+    if (_xmppIncomingFileTransfer==nil) {
+        _xmppIncomingFileTransfer=[[XMPPIncomingFileTransfer alloc]initWithDispatchQueue:dispatch_get_global_queue(0, 0)];
+        
+        // 设置代理方法;
+        [_xmppIncomingFileTransfer addDelegate:self delegateQueue:dispatch_get_main_queue()];
+        
+        //设置为自动接收文件，当然也可以在代理方法中弹出一个alertView来让用户选择是否接收
+        [_xmppIncomingFileTransfer setAutoAcceptFileTransfers:YES];
+    }
+    return _xmppIncomingFileTransfer;
+}
+
+
 -(void)activity{
     // 自带重连;
     [self.xmReconnect activate:self.xmppStream];
     // 心跳检测;
-    [self.xmAutoPing activate:self.xmppStream];
+    //[self.xmAutoPing activate:self.xmppStream];
     
     // 查询好友花名册;
     [self.xmRoster activate:self.xmppStream];
@@ -188,6 +203,9 @@ static XSCManageStream *share; // 控制器流  socket
     
     // 激活自己的个人资料模块;
     [self.xmppvCarTempM activate:self.xmppStream];
+    
+    // 激活文件接收;
+    [self.xmppIncomingFileTransfer activate:self.xmppStream];
 }
 //(4)
 #pragma mark--XMPPStreamDelegate
@@ -246,5 +264,50 @@ static XSCManageStream *share; // 控制器流  socket
     }];
     
     
+    
+    
 }
+
+#pragma mark----设置文件接收代理--XMPPIncomingFileTransferDelegate --
+// 是否同意对方发文件;
+//-(void)xmppIncomingFileTransfer:(XMPPIncomingFileTransfer *)sender didReceiveSIOffer:(XMPPIQ *)offer{
+//    XSCLog(@"%s",__FUNCTION__);
+//    
+//    // 弹出一个是否接收的询问框;
+//    [[XSCManageStream shareManager].xmppIncomingFileTransfer acceptSIOffer:offer];
+//}
+//
+//
+//-(void)xmppIncomingFileTransfer:(XMPPIncomingFileTransfer *)sender didSucceedWithData:(NSData *)data named:(NSString *)name{
+//    
+//    XMPPJID *jid = [sender.senderJID copy];
+//    
+//       //在这个方法里面，我们通过带外来传输的文件
+//    //因此我们的消息同步器，不会帮我们自动生成Message,因此我们需要手动存储message
+//    //根据文件后缀名，判断文件我们是否能够处理，如果不能处理则直接显示。
+//    //图片 音频 （.wav,.mp3,.mp4)
+//    NSString *extension=[name pathExtension];
+//    if (![@"wav" isEqualToString:extension]) {
+//        return;
+//    }
+//    
+//    //创建一个XMPPMessage对象,message必须要有from
+//    XMPPMessage *message=[XMPPMessage messageWithType:@"chat" to:jid];
+//    
+//    //[message addAttributeWithName:@"from" stringValue:message.bare];
+//    [message addSubject:@"audio"];
+//    
+//    
+//    //保存data
+//    NSString *path =  [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+//    path = [path stringByAppendingPathComponent:[XMPPStream generateUUID]];
+//    path = [path stringByAppendingPathExtension:@"wav"];
+//    [data writeToFile:path atomically:YES];
+//    
+//    [message addBody:path.lastPathComponent];
+//    
+//}
+
+
 @end
+
